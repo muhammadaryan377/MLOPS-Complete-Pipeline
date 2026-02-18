@@ -9,7 +9,7 @@ import string
 import nltk
 nltk.download('stopwords')
 nltk.download('punkt')
-
+nltk.download('punkt_tab')
 
 log_dir = 'logs'
 os.makedirs(log_dir, exist_ok=True)
@@ -133,3 +133,5 @@ def main(text_columns: str = 'text', target_columns: str = 'target') -> None:
         raise
         
 
+if __name__ == "__main__":
+    main()  
