@@ -115,8 +115,8 @@ def save_data(df: pd.DataFrame, data_path: str) -> None:
     """    
     try:
 
-        os.makedirs(data_path, exist_ok=True)
-        df.to_csv(os.path.join(data_path, 'train_tfidf.csv'), index=False)
+       
+        df.to_csv(data_path, index=False)
         logger.debug(f"Data saved successfully to {data_path}") 
     except Exception as e:
         logger.error(f"Unexpected error while saving data: {e}")
@@ -130,8 +130,8 @@ def main():
         train_data = load_data(os.path.join('data', 'processed', 'train_processed.csv'))
         test_data = load_data(os.path.join('data', 'processed', 'test_processed.csv'))  
         train_tfidf_df, test_tfidf_df = apply_tfidf_vectorization(train_data, test_data, max_features)
-        save_data(train_tfidf_df, os.path.join('data', 'features')) 
-        save_data(test_tfidf_df, os.path.join('data', 'features'))
+        save_data(train_tfidf_df, os.path.join('data', 'features', 'train_tfidf.csv')) 
+        save_data(test_tfidf_df, os.path.join('data', 'features', 'test_tfidf.csv'))
     except Exception as e:
         logger.error(f"Unexpected error in main function: {e}")
         raise
