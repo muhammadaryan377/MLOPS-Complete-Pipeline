@@ -126,9 +126,9 @@ def save_feature_names(feature_names, path):
 def main():
     try:
         # Load parameters or use default
-        # params = load_params('params.yaml')
-        # max_features = params['feature_engineering']['max_features']
-        max_features = 500
+        params = load_params('params.yaml')
+        max_features = params['feature_engineering']['max_features']
+       
 
         # Load processed train/test CSVs
         train_data = load_data(os.path.join('data', 'processed', 'train_processed.csv'))

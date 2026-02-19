@@ -95,13 +95,16 @@ def save_model(model: RandomForestClassifier, model_path: str) -> None:
 def main():
     try:
         # Load processed TF-IDF features
+        params = load_params('params.yaml')
+       
+
         train_data = load_data(os.path.join('data', 'features', 'train_tfidf.csv'))
         X_train = train_data.drop(columns=['label']).values
         y_train = train_data['label'].values
         logger.debug(f"X_train shape: {X_train.shape} | y_train shape: {y_train.shape}")
 
         # Train model
-        clf = train_model(X_train, y_train)
+        clf = train_model(X_train, y_train, params.get('model_building'))
 
         # Save trained model
         save_model(clf, os.path.join('models', 'random_forest_model.pkl'))
