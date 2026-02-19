@@ -1,139 +1,152 @@
-import pandas as pd
 import os
+import json
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 import logging
 import yaml
 
-# Set up logging
+# ===============================
+# Logging configuration
+# ===============================
 log_dirs = 'logs'
-os.makedirs(log_dirs, exist_ok= True)
+os.makedirs(log_dirs, exist_ok=True)
 
-#logging configuration
 logger = logging.getLogger('feature_engineering')
 logger.setLevel(logging.DEBUG)
 
 console_handler = logging.StreamHandler()
 file_handler = logging.FileHandler(os.path.join(log_dirs, 'feature_engineering.log'))
 
-console_handler.setLevel(logging.DEBUG)
-file_handler.setLevel(logging.DEBUG)
-
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
+console_handler.setLevel(logging.DEBUG)
+file_handler.setLevel(logging.DEBUG)
+
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
-
-# Function to load parameters from yaml file
-
+# ===============================
+# Load YAML parameters
+# ===============================
 def load_params(params_path: str) -> dict:
-    """"
-    
+    """
     Loads parameters from a YAML file.
-    Args:
-        params_path (str): Path to the YAML parameters file.
-    Returns:
-        dict: The loaded parameters.
     """
-
     try:
-        with open(params_path, 'r') as yaml_file:
-            params = yaml.safe_load(yaml_file)
-            logger.debug(f"Paramters loaded successfully from {params_path}")
+        with open(params_path, 'r') as f:
+            params = yaml.safe_load(f)
+            logger.debug(f"Parameters loaded successfully from {params_path}")
             return params
-    except FileNotFoundError as e:
-        logger.error(f"Parameters file not found: {e}")
-        raise
-    except yaml.YAMLError as e:
-        logger.error(f"YAML Error while loading parameters: {e}")
-        raise   
     except Exception as e:
-        logger.error(f"Unexpected error while loading parameters: {e}")
+        logger.error(f"Error loading YAML parameters: {e}")
         raise
 
-
-# load the data
+# ===============================
+# Load CSV data
+# ===============================
 def load_data(data_path: str) -> pd.DataFrame:
-    """"
-    Loads data from a CSV file.
-    Args:
-        data_path (str): Path to the CSV data file."""
-    try:
-        df = pd.DataFrame(pd.read_csv(data_path))
-        df.fillna('', inplace=True)
-        logger.debug(f"Data loaded successfully from {data_path}")
-        return df
-    except FileNotFoundError as e:
-        logger.error(f"Data file not found: {e}")
-        raise
-
-    except pd.errors.EmptyDataError as e:
-        logger.error(f"Empty data file: {e}")
-        raise
-    except pd.errors.ParserError as e:
-        logger.error(f"Error parasing data file: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error while loading data: {e}")
-        raise
-
-## apply tfidf vectorization to the text data
-def apply_tfidf_vectorization(train_data: pd.DataFrame, test_data: pd.DataFrame, max_feature: int) -> tuple:
     """
-    Applies TF-IDF vectorization to the specified text column in the DataFrame.
-    Args:
-        df (pd.DataFrame): The input DataFrame containing the text data.
-       
-        max_features (int): The maximum number of features to be extracted by the TF-IDF vectorizer."""
-    
+    Loads CSV data and fills missing text with empty strings.
+    """
     try:
-        tfidf_vectorize = TfidfVectorizer(max_features= max_feature)
-        train_tfidf = tfidf_vectorize.fit_transform(train_data['text'])
-        test_tfidf = tfidf_vectorize.transform(test_data['text'])
+        df = pd.read_csv(data_path)
+        df.fillna('', inplace=True)
+        logger.debug(f"Data loaded successfully from {data_path} | shape: {df.shape}")
+        return df
+    except Exception as e:
+        logger.error(f"Error loading data from {data_path}: {e}")
+        raise
 
-        train_tfidf_df = pd.DataFrame(train_tfidf.toarray())
-        test_tfidf_df = pd.DataFrame(test_tfidf.toarray())
+# ===============================
+# Apply TF-IDF vectorization
+# ===============================
+def apply_tfidf_vectorization(train_data: pd.DataFrame, test_data: pd.DataFrame, max_features: int):
+    """
+    Apply TF-IDF vectorization to the 'text' column.
+    Returns train/test DataFrames with TF-IDF features + labels
+    """
+    try:
+        vectorizer = TfidfVectorizer(max_features=max_features)
 
+        train_tfidf = vectorizer.fit_transform(train_data['text'])
+        test_tfidf = vectorizer.transform(test_data['text'])
+
+        # Convert to DataFrame with feature names
+        feature_names = vectorizer.get_feature_names_out()
+        train_tfidf_df = pd.DataFrame(train_tfidf.toarray(), columns=feature_names)
+        test_tfidf_df = pd.DataFrame(test_tfidf.toarray(), columns=feature_names)
+
+        # Add label column
         train_tfidf_df['label'] = train_data['target'].values
         test_tfidf_df['label'] = test_data['target'].values
 
-        logger.debug("TF-IDF vectorization applied successfully")
-        return train_tfidf_df, test_tfidf_df
-        
-    except KeyError as e:
-        logger.error(f"Key error during TF-IDF vectorization: {e}")
-        raise
+        logger.debug(f"TF-IDF applied | Train shape: {train_tfidf_df.shape} | Test shape: {test_tfidf_df.shape}")
+        return train_tfidf_df, test_tfidf_df, feature_names
+
     except Exception as e:
-        logger.error(f"Unexpected error during TF-IDF vectorization: {e}")
+        logger.error(f"Error during TF-IDF vectorization: {e}")
         raise
 
+# ===============================
+# Save DataFrame to CSV
+# ===============================
 def save_data(df: pd.DataFrame, data_path: str) -> None:
     """
-    Saves the DataFrame to a CSV file.
-    """    
+    Saves a DataFrame to CSV, creating directories if missing.
+    """
     try:
-
-       
+        os.makedirs(os.path.dirname(data_path), exist_ok=True)
         df.to_csv(data_path, index=False)
-        logger.debug(f"Data saved successfully to {data_path}") 
+        logger.debug(f"Data saved to {data_path} | shape: {df.shape}")
     except Exception as e:
-        logger.error(f"Unexpected error while saving data: {e}")
+        logger.error(f"Error saving data to {data_path}: {e}")
         raise
-        
+
+# ===============================
+# Save feature names
+# ===============================
+def save_feature_names(feature_names, path):
+    """
+    Save TF-IDF feature names for model evaluation.
+    """
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            json.dump(feature_names.tolist(), f)
+        logger.debug(f"TF-IDF feature names saved to {path}")
+    except Exception as e:
+        logger.error(f"Error saving feature names: {e}")
+        raise
+
+# ===============================
+# Main function
+# ===============================
 def main():
     try:
-        #params = load_params(os.path.join('params.yaml'))
-        #max_features = params['feature_engineering']['max_features']
-        max_features = 5000
+        # Load parameters or use default
+        # params = load_params('params.yaml')
+        # max_features = params['feature_engineering']['max_features']
+        max_features = 500
+
+        # Load processed train/test CSVs
         train_data = load_data(os.path.join('data', 'processed', 'train_processed.csv'))
-        test_data = load_data(os.path.join('data', 'processed', 'test_processed.csv'))  
-        train_tfidf_df, test_tfidf_df = apply_tfidf_vectorization(train_data, test_data, max_features)
-        save_data(train_tfidf_df, os.path.join('data', 'features', 'train_tfidf.csv')) 
+        test_data = load_data(os.path.join('data', 'processed', 'test_processed.csv'))
+
+        # Apply TF-IDF
+        train_tfidf_df, test_tfidf_df, feature_names = apply_tfidf_vectorization(train_data, test_data, max_features)
+
+        # Save features
+        save_data(train_tfidf_df, os.path.join('data', 'features', 'train_tfidf.csv'))
         save_data(test_tfidf_df, os.path.join('data', 'features', 'test_tfidf.csv'))
+
+        # Save TF-IDF feature names for evaluation
+        save_feature_names(feature_names, os.path.join('models', 'train_feature_names.json'))
+
     except Exception as e:
         logger.error(f"Unexpected error in main function: {e}")
         raise
+
 if __name__ == "__main__":
-    main() 
+    main()
